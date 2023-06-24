@@ -1,0 +1,24 @@
+[package]
+name = "dafunk-core"
+version = "0.1.0"
+edition = "2021"
+authors=["Blindinlights<blindinlights03@gmail.com>"]
+lisence = "MIT"
+description = "A core library for the DaFunk."
+keywords = ["onebot"]
+
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde={version="*", features=["derive"]}
+serde_json="*"
+futures="*"
+tokio={version="*", features=["full"]}
+tokio-tungstenite="*"
+async-stream="*"
+log="*"
+http="*"
+hyper={verdion="1.0.0-rc.3", features=["full"]}
+thiserror="1.0.40"
