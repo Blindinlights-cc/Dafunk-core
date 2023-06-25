@@ -3,7 +3,7 @@ name = "dafunk-core"
 version = "0.1.0"
 edition = "2021"
 authors=["Blindinlights<blindinlights03@gmail.com>"]
-lisence = "MIT"
+license = "MIT"
 description = "A core library for the DaFunk."
 keywords = ["onebot"]
 
@@ -20,5 +20,5 @@ tokio-tungstenite="*"
 async-stream="*"
 log="*"
 http="*"
-hyper={verdion="1.0.0-rc.3", features=["full"]}
+hyper={version="*", features=["full"]}
 thiserror="1.0.40"

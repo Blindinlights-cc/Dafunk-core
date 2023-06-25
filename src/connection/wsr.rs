@@ -184,7 +184,16 @@ mod tests {
         let mut stream = conn.receive::<Event>().await;
 
         while let Some(event) = stream.next().await {
-            println!("{:?}", event);
+            match event{
+                Event::GroupMessage(msg) => {
+                    let user_name = msg.user_id;
+                    let group_id = msg.group_id;
+                    let text = msg.alt_message;
+                    println!("{} {} {}", user_name, group_id, text);
+
+                }
+                _ => {}
+            }
         }
     }
 }
