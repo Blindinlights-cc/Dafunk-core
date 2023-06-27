@@ -27,7 +27,7 @@ impl HttpConn {
 
 impl OneBotConnection for HttpConn {
     type Error = DafunkError;
-    type StreamOutput<E> = EventStream<E>;
+    type StreamOutput<E> = EventStream<E,Self::Error>;
     async fn send<A>(
         &mut self,
         action: OnebotAction<A>,
@@ -52,7 +52,7 @@ impl OneBotConnection for HttpConn {
         Ok(resp)
     }
 
-    async fn receive<E>(&mut self) -> EventStream<E>
+    async fn receive<E>(&mut self) -> Self::StreamOutput<E>
     where
         E: DeserializeOwned + std::fmt::Debug + Send + Sync + 'static,
     {
@@ -71,7 +71,7 @@ impl OneBotConnection for HttpConn {
                 let value = res.data[0].clone();
                 let event = serde_json::from_value(value);
                 if let Ok(event) = event {
-                    let res = tx.send(event);
+                    let res = tx.send(Ok(event));
                     if res.is_err() {
                         log::error!("send event failed");
                     }

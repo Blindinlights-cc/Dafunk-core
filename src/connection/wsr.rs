@@ -1,14 +1,13 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, error::Error, fmt::Debug, net::SocketAddr, sync::Arc, time::Duration,
+};
 
-use futures::{stream::SplitSink, SinkExt, StreamExt};
+use futures::{channel::mpsc::UnboundedReceiver, stream::SplitSink, SinkExt, StreamExt};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use tokio::{
     net::{TcpListener, TcpStream},
-    sync::{
-        mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex,
-    },
+    sync::{mpsc::UnboundedSender, Mutex},
 };
 use tokio_tungstenite::{self, tungstenite::Message, WebSocketStream};
 
@@ -25,23 +24,21 @@ use crate::{
 use super::obc::{EventStream, OneBotConnection};
 type Wrapper<S> = Arc<Mutex<HashMap<Selft, Arc<Mutex<S>>>>>;
 type WriteStream = SplitSink<WebSocketStream<TcpStream>, Message>;
+
 pub struct WSRConn {
     write_connections: Wrapper<WriteStream>,
     address: SocketAddr,
-    reciever: UnboundedReceiver<Value>,
-    sender: UnboundedSender<Value>,
 }
+
 impl WSRConn {
     pub fn new(address: &str) -> Self {
         let address = address.parse().expect("Invalid socket address");
 
         let write_connections = Arc::new(Mutex::new(HashMap::new()));
-        let (res_sender, res_reciever) = tokio::sync::mpsc::unbounded_channel();
+
         Self {
             write_connections,
             address,
-            reciever: res_reciever,
-            sender: res_sender,
         }
     }
 }
@@ -49,27 +46,25 @@ impl WSRConn {
 async fn get_seft(
     ws_stream: &mut WebSocketStream<TcpStream>,
 ) -> Result<Vec<Selft>, tokio_tungstenite::tungstenite::Error> {
-    println!("get_seft");
     let action = action::GetStatus {};
     let payload = OnebotAction::new(action).json();
-    println!("{}", payload);
-    let msg = Message::Text(payload);
-    ws_stream.send(msg).await?;
+    let payload = Message::Text(payload);
+    ws_stream.send(payload.clone()).await?;
     while let Some(msg) = ws_stream.next().await {
         let msg = msg?;
         if let Message::Text(text) = msg {
             let res: Result<OnebotActionResponse<BotsStatus>, serde_json::Error> =
                 serde_json::from_str::<OnebotActionResponse<BotsStatus>>(&text);
             if let Ok(resp) = res {
-                let selts = resp
+                let selfts = resp
                     .data
                     .bots
                     .iter()
                     .map(|bot| bot.self_.clone())
                     .collect::<Vec<Selft>>();
-                return Ok(selts);
+                return Ok(selfts);
             } else {
-                continue;
+                ws_stream.send(payload.clone()).await?;
             }
         }
     }
@@ -77,7 +72,7 @@ async fn get_seft(
 }
 impl OneBotConnection for WSRConn {
     type Error = DafunkError;
-    type StreamOutput<E> = EventStream<E>;
+    type StreamOutput<E> = EventStream<E, Self::Error>;
     async fn send<A>(
         &mut self,
         action: OnebotAction<A>,
@@ -99,67 +94,29 @@ impl OneBotConnection for WSRConn {
         let mut wc = write_conns.lock().await;
         let w_stream = wc.get_mut(&selft).expect("No such self_");
         w_stream.lock().await.send(msg).await?;
-
-        use tokio::time::timeout;
-        let res = timeout(Duration::from_secs(10), self.reciever.recv()).await?;
-        if let Some(res) = res {
-            let res = serde_json::from_value::<OnebotActionResponse<A::Output>>(res)?;
-            Ok(res)
-        } else {
-            Err(DafunkError::Unknown)
-        }
+        unimplemented!()
     }
 
-    async fn receive<E>(&mut self) -> super::obc::EventStream<E>
+    async fn receive<E>(&mut self) -> super::obc::EventStream<E, Self::Error>
     where
         E: DeserializeOwned + std::fmt::Debug + Send + Sync + 'static,
     {
         let write_cons = self.write_connections.clone();
-        let address = self.address.clone();
-        let res_tx = self.sender.clone();
+        let address = self.address;
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+
+        let listener = TcpListener::bind(&address)
+            .await
+            .expect("Can't bind to address");
+
         let fut = async move {
-            let listener = TcpListener::bind(&address)
-                .await
-                .expect("Can't bind to address");
             while let Ok((tcp_stream, _)) = listener.accept().await {
                 if tcp_stream.peer_addr().is_err() {
+                    tx.send(Err(DafunkError::Unknown)).ok();
                     continue;
                 }
-                let write_cons = write_cons.clone();
-                let res_tx = res_tx.clone();
-                let tx = tx.clone();
-                tokio::spawn(async move {
-                    let mut ws_stream = tokio_tungstenite::accept_async(tcp_stream)
-                        .await
-                        .expect("Error during the websocket handshake occurred");
 
-                    let selt = get_seft(&mut ws_stream).await.unwrap();
-
-                    let (write, read) = ws_stream.split();
-                    let (write, mut read) = (Arc::new(Mutex::new(write)), read);
-
-                    for selt in selt {
-                        let mut write_cons = write_cons.lock().await;
-                        write_cons.insert(selt.clone(), write.clone());
-                    }
-
-                    while let Some(msg) = read.next().await {
-                        let msg = msg.unwrap();
-                        if let Message::Text(text) = msg {
-                            let response = serde_json::from_str::<
-                                OnebotActionResponse<serde_json::Value>,
-                            >(&text);
-                            if let Ok(_) = response {
-                                let value: Value = serde_json::from_str(&text).unwrap();
-                                res_tx.clone().send(value).unwrap();
-                                continue;
-                            }
-                            let event: E = serde_json::from_str(&text).unwrap();
-                            tx.send(event).unwrap();
-                        }
-                    }
-                });
+                tokio::spawn(read_ws_stream(tcp_stream, write_cons.clone(), tx.clone()));
             }
         };
 
@@ -168,11 +125,58 @@ impl OneBotConnection for WSRConn {
     }
 }
 
+async fn send_message<E: DeserializeOwned + Debug + 'static>(
+    msg: Message,
+    tx: &UnboundedSender<Result<E, DafunkError>>,
+) -> Result<(), Box<dyn Error>> {
+    let msg = msg;
+    if let Message::Text(text) = msg {
+        let response = serde_json::from_str::<OnebotActionResponse<serde_json::Value>>(&text);
+        if response.is_ok() {
+            let value: Value = serde_json::from_str(&text)?;
+            //res_tx.clone().send(value)?;
+            return Ok(());
+        }
+        let event: E = serde_json::from_str(&text)?;
+        tx.send(Ok(event))?;
+    }
+    Ok(())
+}
+
+async fn read_ws_stream<E: DeserializeOwned + Debug + 'static>(
+    tcp_stream: TcpStream,
+    write_cons: Wrapper<WriteStream>,
+    tx: UnboundedSender<Result<E, DafunkError>>,
+) -> Result<(), DafunkError> {
+    let mut ws_stream = tokio_tungstenite::accept_async(tcp_stream)
+        .await
+        .expect("Error during the websocket handshake occurred");
+
+    let selt = get_seft(&mut ws_stream).await?;
+    println!("selt: {:?}", selt);
+
+    let (write, read) = ws_stream.split();
+    let (write, mut read) = (Arc::new(Mutex::new(write)), read);
+
+    for selt in selt {
+        let mut write_cons = write_cons.lock().await;
+        write_cons.insert(selt, write.clone());
+    }
+
+    while let Some(Ok(msg)) = read.next().await {
+        let res = send_message(msg, &tx).await;
+        if let Err(e) = res {
+            log::error!("Error: {}", e);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use futures::StreamExt;
 
-    use crate::types::Event;
+    use crate::types::{action::GetStatus, Event};
 
     use super::*;
 
@@ -183,17 +187,12 @@ mod tests {
         let mut conn = WSRConn::new(addr);
         let mut stream = conn.receive::<Event>().await;
 
-        while let Some(event) = stream.next().await {
-            match event{
-                Event::GroupMessage(msg) => {
-                    let user_name = msg.user_id;
-                    let group_id = msg.group_id;
-                    let text = msg.alt_message;
-                    println!("{} {} {}", user_name, group_id, text);
-
-                }
-                _ => {}
-            }
+        while let Some(Ok(event)) = stream.next().await {
+            tokio::spawn(async move {
+                let action = GetStatus {};
+                let action = OnebotAction::new(action);
+                conn.send(action).await.unwrap();
+            });
         }
     }
 }

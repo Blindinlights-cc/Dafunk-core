@@ -1,6 +1,6 @@
-use std::fmt::Debug;
 use futures::{SinkExt, StreamExt};
 use serde::de::DeserializeOwned;
+use std::fmt::Debug;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{self, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
@@ -23,7 +23,7 @@ use super::obc::EventStream;
 
 impl OneBotConnection for WSConn {
     type Error = tokio_tungstenite::tungstenite::Error;
-    type StreamOutput<E> = EventStream<E>;
+    type StreamOutput<E> = EventStream<E, Self::Error>;
     async fn send<A>(
         &mut self,
         action: OnebotAction<A>,
@@ -47,29 +47,11 @@ impl OneBotConnection for WSConn {
         unreachable!()
     }
 
-    async fn receive<E>(&mut self) -> super::obc::EventStream<E>
+    async fn receive<E>(&mut self) -> Self::StreamOutput<E>
     where
         E: DeserializeOwned + Debug + Send + Sync + 'static,
     {
         unimplemented!()
-        // let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        // tokio::spawn(async move {
-        //     loop {
-        //         if let Some(msg) = self.ws_stream.next().await {
-        //             let msg = if msg.is_ok() { msg.unwrap() } else { continue };
-
-        //             if let Message::Text(text) = msg {
-        //                 let resp: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-        //                 let resp: E = resp.into();
-        //                 let res = tx.send(resp);
-        //                 if res.is_err() {
-        //                     continue;
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
-        // EventStream::new(rx)
     }
 }
 
@@ -77,7 +59,7 @@ impl OneBotConnection for WSConn {
 mod tests {
     use futures::StreamExt;
 
-    use crate::{types::Event, connection::obc::EventStream};
+    use crate::types::Event;
 
     use super::*;
 
@@ -85,7 +67,7 @@ mod tests {
     async fn test() {
         let url = "ws://127.0.0.1:6701";
         let mut conn = WSConn::connect(url).await.unwrap();
-        let mut stream:EventStream<Event> = conn.receive().await;
+        let mut stream = conn.receive::<Event>().await;
         while let Some(msg) = stream.next().await {
             println!("{:#?}", msg);
         }
