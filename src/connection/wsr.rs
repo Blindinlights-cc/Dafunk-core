@@ -132,7 +132,6 @@ impl OneBotConnection for WSRConn {
                     tx.send(Err(DafunkError::Unknown)).ok();
                     continue;
                 }
-
                 tokio::spawn(read_ws_stream(
                     tcp_stream,
                     write_cons.clone(),
@@ -141,7 +140,6 @@ impl OneBotConnection for WSRConn {
                 ));
             }
         };
-
         tokio::spawn(fut);
         EventStream::new(rx)
     }
@@ -170,11 +168,10 @@ async fn read_ws_stream<E: DeserializeOwned + Debug + 'static>(
     while let Some(Ok(msg)) = read.next().await {
         let msg = msg;
         if let Message::Text(text) = msg {
-            let response = serde_json::from_str::<OnebotActionResponse<serde_json::Value>>(&text);
+            let response = serde_json::from_str(&text);
             if response.is_ok() {
-                //println!("Response: {:?}", response);
-                let response = response.unwrap();
-                let mut res_sender = res_sender.lock().await;
+                let response: OnebotActionResponse<Value> = response.unwrap();
+                let mut res_sender= res_sender.lock().await;
                 let echo = response.echo.clone().unwrap_or_else(|| "".to_string());
                 res_sender.remove(&echo).map(|tx| tx.send(response).ok());
                 continue;
