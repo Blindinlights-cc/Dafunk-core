@@ -91,6 +91,7 @@ dependencies = [
  "http",
  "hyper",
  "log",
+ "rand",
  "serde",
  "serde_json",
  "thiserror",

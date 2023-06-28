@@ -22,3 +22,4 @@ log="*"
 http="*"
 hyper={version="*", features=["full"]}
 thiserror="1.0.40"
+rand="*"
