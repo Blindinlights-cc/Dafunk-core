@@ -1,4 +1,5 @@
 use futures::{stream::SplitSink, SinkExt, StreamExt};
+use http::{Request, Uri};
 use rand::{distributions::Alphanumeric, Rng};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -17,6 +18,7 @@ pub struct WSConn {
     write_stream: Option<Arc<Mutex<WriteStream>>>,
     response: Arc<Mutex<HashMap<String, Sender<OnebotActionResponse<Value>>>>>,
     addr: String,
+    access_token: Option<String>,
 }
 
 impl WSConn {
@@ -25,6 +27,7 @@ impl WSConn {
             write_stream: None,
             response: Arc::new(Mutex::new(HashMap::new())),
             addr: url.parse().unwrap(),
+            access_token: None,
         }
     }
     async fn read_response(
@@ -48,7 +51,7 @@ impl OneBotConnection for WSConn {
     type Error = DafunkError;
     type StreamOutput<E> = EventStream<E, Self::Error>;
     async fn send<A>(
-        &mut self,
+        self:Arc<Self>,
         action: OnebotAction<A>,
     ) -> Result<OnebotActionResponse<A::Output>, Self::Error>
     where
@@ -72,35 +75,69 @@ impl OneBotConnection for WSConn {
         Ok(res.into_response())
     }
 
-    async fn receive<E>(&mut self) -> Self::StreamOutput<E>
+    async fn receive<E>(self:Arc<Self>) -> Self::StreamOutput<E>
     where
         E: DeserializeOwned + Debug + Send + Sync + 'static,
     {
-        let (ws_stream, _) = connect_async(&self.addr).await.expect("");
-        let (write, mut read) = ws_stream.split();
-        let (tx, rx) = unbounded_channel();
-        self.write_stream = Some(Arc::new(Mutex::new(write)));
-        let response_sender = self.response.clone();
-        let fut = async move {
-            while let Some(Ok(Message::Text(e))) = read.next().await {
-                let resp: Result<OnebotActionResponse<Value>, serde_json::Error> =
-                    serde_json::from_str(&e);
-                if resp.is_ok() {
-                    let resp = resp.unwrap();
-                    let echo = resp.echo.clone().unwrap();
-                    response_sender
-                        .lock()
-                        .await
-                        .remove(&echo)
-                        .map(|tx| tx.send(resp));
-                    continue;
-                }
-                let event = serde_json::from_str(&e).map_err(DafunkError::SerdeError);
-                tx.send(event).ok();
-            }
+        let req = if let Some(ref token) = self.access_token {
+            let bear = format!("Bear {token}");
+            Request::builder()
+                .uri(&self.addr)
+                .header("Authorization", &bear)
+                .body(())
+                .unwrap()
+        } else {
+            Request::builder().uri(&self.addr).body(()).unwrap()
         };
-        tokio::spawn(fut);
-        EventStream::new(rx)
+
+        let (ws_stream, _) = connect_async(req).await.expect("");
+        let (write, mut read) = ws_stream.split();
+        //let (tx, rx) = unbounded_channel();
+       
+        todo!()
+        // self.write_stream = Some(Arc::new(Mutex::new(write)));
+        // let response_sender = self.response.clone();
+        // let fut = async move {
+        //     while let Some(Ok(msg)) = read.next().await {
+        //         match msg {
+        //             Message::Text(text) => {
+        //                 let resp: Result<OnebotActionResponse<Value>, serde_json::Error> =
+        //                     serde_json::from_str(&text);
+        //                 if resp.is_ok() {
+        //                     let resp = resp.unwrap();
+        //                     let echo = resp.echo.clone().unwrap();
+        //                     response_sender
+        //                         .lock()
+        //                         .await
+        //                         .remove(&echo)
+        //                         .map(|tx| tx.send(resp));
+        //                     continue;
+        //                 }
+        //                 let event = serde_json::from_str(&text).map_err(DafunkError::SerdeError);
+        //                 tx.send(event).ok();
+        //             }
+        //             Message::Binary(msg) => {
+        //                 let resp: Result<OnebotActionResponse<Value>, serde_json::Error> =
+        //                     serde_json::from_slice(&msg);
+        //                 if resp.is_ok() {
+        //                     let resp = resp.unwrap();
+        //                     let echo = resp.echo.clone().unwrap();
+        //                     response_sender
+        //                         .lock()
+        //                         .await
+        //                         .remove(&echo)
+        //                         .map(|tx| tx.send(resp));
+        //                     continue;
+        //                 }
+        //                 let event = serde_json::from_slice(&msg).map_err(DafunkError::SerdeError);
+        //                 tx.send(event).ok();
+        //             }
+        //             _ => {}
+        //         }
+        //     }
+        // };
+        // tokio::spawn(fut);
+        // EventStream::new(rx)
     }
 }
 
@@ -114,18 +151,6 @@ mod tests {
 
     #[tokio::test]
     async fn test() {
-        let url = "ws://127.0.0.1:6701";
-        let mut conn = WSConn::new(url);
-        let mut stream = conn.receive::<Event>().await;
-        while let Some(Ok(_)) = stream.next().await {
-            let mut conn = conn.clone();
-            let action = GetStatus {};
-            let action = OnebotAction::new(action);
-
-            tokio::spawn(async move {
-                let res = conn.send(action).await.unwrap();
-                println!("{:#?}", res);
-            });
-        }
+        todo!();
     }
 }

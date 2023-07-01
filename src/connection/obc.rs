@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use crate::payload::Payload;
 use crate::types::{action::OnebotAction, response::OnebotActionResponse};
@@ -13,13 +14,13 @@ pub trait OneBotConnection
 
     
     async fn send<A>(
-        &mut self,
+        self:Arc<Self>,
         action: OnebotAction<A>,
     ) -> Result<OnebotActionResponse<A::Output>, Self::Error>
     where
         A: 'static,
         A: Payload;
-    async fn receive<E>(&mut self) -> Self::StreamOutput<E>
+    async fn receive<E>(self:Arc<Self>,) -> Self::StreamOutput<E>
     where
         E: 'static+Send+Sync,
         E: DeserializeOwned,

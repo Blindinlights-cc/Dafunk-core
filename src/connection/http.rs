@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     connection::obc::OneBotConnection,
     error::DafunkError,
@@ -29,7 +31,7 @@ impl OneBotConnection for HttpConn {
     type Error = DafunkError;
     type StreamOutput<E> = EventStream<E,Self::Error>;
     async fn send<A>(
-        &mut self,
+        self:Arc<Self>,
         action: OnebotAction<A>,
     ) -> Result<OnebotActionResponse<A::Output>, Self::Error>
     where
@@ -52,7 +54,7 @@ impl OneBotConnection for HttpConn {
         Ok(resp)
     }
 
-    async fn receive<E>(&mut self) -> Self::StreamOutput<E>
+    async fn receive<E>(self:Arc<Self>,) -> Self::StreamOutput<E>
     where
         E: DeserializeOwned + std::fmt::Debug + Send + Sync + 'static,
     {
@@ -65,7 +67,7 @@ impl OneBotConnection for HttpConn {
             };
             let action = OnebotAction::new(action);
 
-            let mut conn = conn.clone();
+            let  conn = conn.clone();
             let res = conn.send(action).await;
             if let Ok(res) = res {
                 let value = res.data[0].clone();

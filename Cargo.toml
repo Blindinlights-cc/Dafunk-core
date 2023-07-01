@@ -17,7 +17,6 @@ serde_json="*"
 futures="*"
 tokio={version="*", features=["full"]}
 tokio-tungstenite="*"
-async-stream="*"
 log="*"
 http="*"
 hyper={version="*", features=["full"]}
