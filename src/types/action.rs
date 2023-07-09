@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::payload::Payload;
 
 use super::Selft;
-
+///  
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OnebotAction<T> {
     pub action: String,
@@ -15,10 +15,12 @@ pub struct OnebotAction<T> {
     pub self_: Option<Selft>,
 }
 
-impl<T: Payload> OnebotAction<T> {
+impl<T: Serialize> OnebotAction<T> {
     pub fn json(&self) -> String {
         serde_json::to_string(&self).unwrap()
     }
+}
+impl<T: Payload> OnebotAction<T> {
     pub fn new(params: T) -> Self {
         Self {
             action: T::NAME.to_string(),
@@ -165,14 +167,6 @@ impl_payload!(
         pub bots: Vec<crate::types::BotsInfo>,
     }
 );
-
-
-
-
-
-
-
-
 
 impl_payload!(
     @[name=get_supported_actions]

@@ -12,5 +12,9 @@ pub enum DafunkError {
     Timeout(#[from] tokio::time::error::Elapsed),
     #[error("Unknown Error: ")]
     Unknown,
-
+}
+#[derive(Error, Debug)]
+pub enum Rejection{
+    #[error("No dependency found")]
+    NoDependecy,
 }

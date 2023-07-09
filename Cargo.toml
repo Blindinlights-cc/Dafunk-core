@@ -22,3 +22,8 @@ http="*"
 hyper={version="*", features=["full"]}
 thiserror="1.0.40"
 rand="*"
+uuid={version="*", features=["v4"]}
+[features]
+webhook=[]
+ws=[]
+wsr=[]
