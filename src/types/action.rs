@@ -1,49 +1,59 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
-
-use crate::payload::Payload;
-
+pub trait ActionParams: Serialize {
+    const NAME: &'static str;
+    type Response: DeserializeOwned + Clone;
+}
 use super::Selft;
 ///  
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OnebotAction<T> {
     pub action: String,
     pub params: T,
+    pub echo: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub echo: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "self")]
     pub self_: Option<Selft>,
 }
-
-impl<T: Serialize> OnebotAction<T> {
-    pub fn json(&self) -> String {
+pub trait Action {
+    type ActionResponse;
+    fn name(&self) -> &'static str;
+    fn json(&self) -> String;
+    fn bytes(&self) -> Vec<u8>;
+    fn self_type(&self) -> Option<&Selft>;
+    fn echo(&self) -> String;
+}
+impl<T: ActionParams> Action for OnebotAction<T> {
+    type ActionResponse = T::Response;
+    fn name(&self) -> &'static str {
+        T::NAME
+    }
+    fn json(&self) -> String {
         serde_json::to_string(&self).unwrap()
     }
+    fn bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(&self).unwrap()
+    }
+    fn self_type(&self) -> Option<&Selft> {
+        self.self_.as_ref()
+    }
+    fn echo(&self) -> String {
+        self.echo.clone()
+    }
 }
-impl<T: Payload> OnebotAction<T> {
-    pub fn new(params: T) -> Self {
+
+impl<T: ActionParams> OnebotAction<T> {
+    pub fn new(params: T, echo: String) -> Self {
         Self {
             action: T::NAME.to_string(),
             params,
-            echo: None,
+            echo,
             self_: None,
         }
     }
-    pub fn with_echo(params: T, echo: String) -> Self {
-        Self {
-            action: T::NAME.to_string(),
-            params,
-            echo: Some(echo),
-            self_: None,
-        }
-    }
-    pub fn with_self(params: T, self_: Selft) -> Self {
-        Self {
-            action: T::NAME.to_string(),
-            params,
-            echo: None,
-            self_: Some(self_),
-        }
+    pub fn self_type(mut self, selft: Selft) -> Self {
+        self.self_ = Some(selft);
+        self
     }
 }
 
@@ -135,9 +145,9 @@ macro_rules! impl_payload {
 
 
 
-        impl $crate::payload::Payload for $Action {
+        impl $crate::types::action::ActionParams for $Action {
             const NAME: &'static str = stringify!($name);
-            type Output = $Ret;
+            type Response = $Ret;
         }
 
     };

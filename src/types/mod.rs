@@ -4,7 +4,6 @@ pub mod segment;
 pub use event::*;
 use serde::Deserialize;
 pub use serde_json::Value;
-pub mod response;
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct BotsInfo {
     #[serde(rename = "self")]

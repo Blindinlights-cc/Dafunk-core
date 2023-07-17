@@ -15,15 +15,14 @@ keywords = ["onebot"]
 serde={version="*", features=["derive"]}
 serde_json="*"
 futures="*"
-tokio={version="*", features=["full"]}
+[dev-dependencies]
 tokio-tungstenite="*"
-log="*"
-http="*"
+tokio={features = ["full"],version = "*"}
 hyper={version="*", features=["full"]}
-thiserror="1.0.40"
-rand="*"
-uuid={version="*", features=["v4"]}
+
 [features]
-webhook=[]
-ws=[]
-wsr=[]
+
+[[example]]
+name="wsr"
+path="examples/wsr.rs"
+
