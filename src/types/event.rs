@@ -1,6 +1,7 @@
 use crate::types::segment::MessageSegments;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+/// Base event struct;
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct EventBase {
     /// The unique identifier of the event.
@@ -23,6 +24,7 @@ pub struct EventBase {
     /// Bot self identification.
     pub selft: Option<Selft>,
 
+    /// extra
     #[serde(flatten)]
     pub extra: Option<Value>,
 }

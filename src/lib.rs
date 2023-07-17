@@ -5,4 +5,6 @@ pub mod handler;
 pub mod obc;
 pub mod request;
 pub mod response;
+
+/// Types used in the OneBot protocol.
 pub mod types;

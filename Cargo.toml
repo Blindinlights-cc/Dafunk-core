@@ -6,6 +6,8 @@ authors=["Blindinlights<blindinlights03@gmail.com>"]
 license = "MIT"
 description = "A core library for the DaFunk."
 keywords = ["onebot"]
+repository="https://github.com/Blindinlights-cc/Dafunk-core"
+readme = "README.md"
 
 
 

@@ -1,11 +1,15 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
+/// Action params
 pub trait ActionParams: Serialize {
+    /// Action name
     const NAME: &'static str;
+
+    /// Response type of this action
     type Response: DeserializeOwned + Clone;
 }
 use super::Selft;
-///  
+///  Onebot action base struct
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct OnebotAction<T> {
     pub action: String,
@@ -15,12 +19,19 @@ pub struct OnebotAction<T> {
     #[serde(rename = "self")]
     pub self_: Option<Selft>,
 }
+/// Onebot action trait
 pub trait Action {
+    /// Action response type
     type ActionResponse;
+    /// Action name
     fn name(&self) -> &'static str;
+    /// Json
     fn json(&self) -> String;
+    /// Bytes
     fn bytes(&self) -> Vec<u8>;
+    /// Self type [Selft]
     fn self_type(&self) -> Option<&Selft>;
+    /// Echo
     fn echo(&self) -> String;
 }
 impl<T: ActionParams> Action for OnebotAction<T> {
@@ -43,6 +54,17 @@ impl<T: ActionParams> Action for OnebotAction<T> {
 }
 
 impl<T: ActionParams> OnebotAction<T> {
+    /// Create a new OnebotAction
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use dafunk_core::types::action::OnebotAction;
+    /// use dafunk_core::types::action::GetStatus;
+    /// let ap=GetStatus{};
+    /// let action =OnebotAction::new(ap,"echo".to_string());
+    ///
+    ///
     pub fn new(params: T, echo: String) -> Self {
         Self {
             action: T::NAME.to_string(),
@@ -51,6 +73,7 @@ impl<T: ActionParams> OnebotAction<T> {
             self_: None,
         }
     }
+    /// Add [Selft] for OBAction
     pub fn self_type(mut self, selft: Selft) -> Self {
         self.self_ = Some(selft);
         self
