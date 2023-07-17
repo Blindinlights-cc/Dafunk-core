@@ -8,19 +8,14 @@ description = "A core library for the DaFunk."
 keywords = ["onebot"]
 repository="https://github.com/Blindinlights-cc/Dafunk-core"
 readme = "README.md"
-
-
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-serde={version="*", features=["derive"]}
-serde_json="*"
-futures="*"
+serde={version="1.0.171", features=["derive"]}
+serde_json="1.0.103"
+futures="0.3.28"
 [dev-dependencies]
-tokio-tungstenite="*"
-tokio={features = ["full"],version = "*"}
-hyper={version="*", features=["full"]}
+tokio-tungstenite="0.19.0"
+tokio={features = ["full"],version = "1.29.1"}
+hyper={version="0.14.27", features=["full"]}
 
 [features]
 
