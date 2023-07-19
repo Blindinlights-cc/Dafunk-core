@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-
 use crate::types::Event;
 pub struct Bot<E> {
     event:PhantomData<E>,
